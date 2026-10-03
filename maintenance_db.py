@@ -63,6 +63,9 @@ def initialize() -> None:
                 ai_summary TEXT NOT NULL DEFAULT '',
                 possible_causes TEXT NOT NULL DEFAULT '',
                 recommendation TEXT NOT NULL DEFAULT '',
+                triage_provider TEXT NOT NULL DEFAULT '',
+                routing_provider TEXT NOT NULL DEFAULT '',
+                technician_match_reason TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -106,7 +109,17 @@ def initialize() -> None:
             CREATE INDEX IF NOT EXISTS idx_records_equipment ON maintenance_records(equipment_id);
             """
         )
+        _ensure_issue_ai_columns(db)
         _seed(db)
+
+
+def _ensure_issue_ai_columns(db: sqlite3.Connection) -> None:
+    columns = {
+        column["name"] for column in db.execute("PRAGMA table_info(issues)").fetchall()
+    }
+    for name in ("triage_provider", "routing_provider", "technician_match_reason"):
+        if name not in columns:
+            db.execute(f"ALTER TABLE issues ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
 
 
 def _seed(db: sqlite3.Connection) -> None:
@@ -177,8 +190,9 @@ def create_issue(
         cursor = db.execute(
             """INSERT INTO issues
                (equipment_id, title, description, category, priority, assigned_technician_id,
-                ai_summary, possible_causes, recommendation, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                ai_summary, possible_causes, recommendation, triage_provider, routing_provider,
+                technician_match_reason, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 equipment_id,
                 title,
@@ -189,6 +203,9 @@ def create_issue(
                 str(triage.get("issue", "")),
                 "\n".join(str(cause) for cause in triage.get("possible_causes", [])),
                 str(triage.get("recommendation", "")),
+                str(triage.get("provider", "")),
+                str(triage.get("routing_provider", "")),
+                str(triage.get("technician_match_reason", "")),
                 now,
                 now,
             ),

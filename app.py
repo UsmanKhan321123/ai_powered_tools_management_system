@@ -8,7 +8,12 @@ import pandas as pd
 import streamlit as st
 
 import maintenance_db as db
-from ai_services import answer_knowledge_question, summarize_maintenance_history, triage_issue
+from ai_services import (
+    answer_knowledge_question,
+    groq_configured,
+    summarize_maintenance_history,
+    triage_issue,
+)
 
 
 st.set_page_config(page_title="MaintainIQ | Maintenance Operations", page_icon="🛠️", layout="wide")
@@ -140,24 +145,11 @@ def equipment_options() -> list[dict]:
 
 
 def technician_options() -> list[dict]:
-    return db.rows("SELECT id, name, skills, availability FROM technicians ORDER BY name")
-
-
-def recommend_technician(category: str, technicians: list[dict]) -> int | None:
-    if not technicians:
-        return None
-    available = [tech for tech in technicians if tech["availability"] == "Available"] or technicians
-    category_terms = {
-        "Cooling": ("cool", "pump", "mechanical"),
-        "Hydraulic": ("hydraulic", "pump"),
-        "Electrical": ("electrical", "motor"),
-        "Controls": ("control", "sensor", "electrical"),
-        "Mechanical": ("mechanical", "cnc", "vibration"),
-    }
-    terms = category_terms.get(category, ())
-    return next(
-        (tech["id"] for tech in available if any(term in tech["skills"].lower() for term in terms)),
-        available[0]["id"],
+    return db.rows(
+        """SELECT t.id, t.name, t.skills, t.availability,
+                  (SELECT COUNT(*) FROM issues i
+                   WHERE i.assigned_technician_id = t.id AND i.status != 'Closed') AS active_work_orders
+           FROM technicians t ORDER BY t.name"""
     )
 
 
@@ -307,7 +299,13 @@ def page_equipment() -> None:
     st.subheader("Technicians")
     safe_frame(
         technicians,
-        {"id": "ID", "name": "Name", "skills": "Skills", "availability": "Availability"},
+        {
+            "id": "ID",
+            "name": "Name",
+            "skills": "Skills",
+            "availability": "Availability",
+            "active_work_orders": "Active work orders",
+        },
     )
     with st.expander("Add technician"):
         with st.form("add_technician_form"):
@@ -334,7 +332,10 @@ def page_issue_intake() -> None:
     if not equipment:
         st.warning("Add equipment before reporting an issue.")
         return
-    st.caption("AI triage classifies the request and proposes a priority, causes, and safe first steps.")
+    if groq_configured():
+        st.caption("Groq AI will analyze the symptoms and select a technician using their actual skills, availability, and active workload.")
+    else:
+        st.warning("Groq AI is not configured. This request will use local rule-based triage and skill matching. Set GROQ_API_KEY and restart the app for AI-generated analysis and routing.")
     with st.form("report_issue_form"):
         selected_asset = st.selectbox(
             "Equipment",
@@ -352,24 +353,35 @@ def page_issue_intake() -> None:
             st.error("Please describe the problem in a little more detail (at least 8 characters).")
             return
         with st.spinner("Analyzing the issue and routing it to a technician..."):
-            triage, provider_error = triage_issue(description, selected_asset["name"])
-            tech_id = recommend_technician(triage["category"], technicians)
+            triage, provider_error = triage_issue(
+                description,
+                selected_asset["name"],
+                technicians,
+                selected_asset["equipment_type"],
+            )
+            tech_id = triage["assigned_technician_id"]
             issue_id = db.create_issue(selected_asset["id"], description, triage, tech_id)
         if provider_error:
             st.warning(
-                f"Groq AI was unavailable; a local rules-based triage was used instead. Details: {provider_error}"
+                f"Groq AI was unavailable or returned an invalid routing result; local symptom-based triage or skill matching was used. Details: {provider_error}"
             )
         st.success(f"Request #{issue_id} created and added to the maintenance work queue.")
         st.markdown(f"**Category:** {triage['category']} · **Priority:** {triage['priority']}")
         if tech_id:
             tech_name = next((tech["name"] for tech in technicians if tech["id"] == tech_id), "Assigned")
             st.markdown(f"**Suggested technician:** {tech_name}")
+        else:
+            st.warning("No suitable available technician was found. The request is unassigned and needs manual routing.")
+        st.caption(f"Routing: {triage['routing_provider']} · {triage['technician_match_reason']}")
         st.markdown(f"**Initial recommendation:** {triage['recommendation']}")
         if triage["possible_causes"]:
             st.markdown("**Possible causes:**")
             for cause in triage["possible_causes"]:
                 st.markdown(f"- {cause}")
-        st.caption(f"Triage provider: {triage['provider']}. Verify all findings with a qualified technician.")
+        st.caption(
+            f"Triage: {triage['provider']} · Routing: {triage['routing_provider']}. "
+            "Verify all findings with a qualified technician."
+        )
 
 
 def page_work_orders() -> None:
@@ -394,6 +406,11 @@ def page_work_orders() -> None:
             st.caption(f"Category: {issue['category']} · Reported: {issue['created_at']} · Due: "
                        f"{(db.row('SELECT due_date FROM maintenance_tasks WHERE issue_id = ?', (issue['id'],)) or {}).get('due_date', '—')}")
             st.markdown(f"**AI recommendation:** {issue['recommendation'] or 'No recommendation available.'}")
+            if issue.get("technician_match_reason"):
+                st.caption(
+                    f"Routing: {issue.get('routing_provider') or 'Manual'} · "
+                    f"{issue['technician_match_reason']}"
+                )
             with st.form(f"update_issue_{issue['id']}"):
                 current_status = issue["status"] if issue["status"] in status_options else "Open"
                 status = st.selectbox("Status", status_options, index=status_options.index(current_status), key=f"status_{issue['id']}")
@@ -677,10 +694,14 @@ with st.sidebar:
         """
         <div class="sidebar-foot">
             <span class="online-dot"></span> All systems operational<br>
-            SQLite · Local-first · AI-ready
+            SQLite · Local-first
         </div>
         """,
         unsafe_allow_html=True,
     )
+    if groq_configured():
+        st.caption("Groq key configured · API checked per request")
+    else:
+        st.caption("Local AI fallback · GROQ_API_KEY not set")
 
 PAGES[selected_page]()
