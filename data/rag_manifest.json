@@ -1,0 +1,9 @@
+{
+  "PIAIC Student Portal id card.pdf": {
+    "hash": "cc962e4ac99b53aaac211c01ea64595c3a91f7bd5ceef080a7ab166d28f5bf99",
+    "chunks": 1,
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "chunk_size": 900,
+    "chunk_overlap": 150
+  }
+}

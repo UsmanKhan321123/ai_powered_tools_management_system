@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MaintainIQ | Maintenance Operations</title>
+<meta name="description" content="AI-assisted maintenance management: asset register, issue triage, work orders, and document-grounded answers.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234968e8'/%3E%3Cpath d='M16 8v16M8 16h16M11 11l10 10M21 11L11 21' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="./css/styles.css?v=5">
+</head>
+<body>
+
+<div class="app">
+
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
+          <path d="M12 5v14M5 12h14M7.8 7.8l8.4 8.4M16.2 7.8l-8.4 8.4"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-name">MaintainIQ</div>
+        <div class="brand-sub">Intelligent operations</div>
+      </div>
+    </div>
+
+    <div class="nav-label">Workspace</div>
+
+    <nav class="nav" id="nav">
+      <a class="nav-item" href="#/dashboard" data-route="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/>
+          <rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/>
+        </svg>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" href="#/equipment" data-route="equipment">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 2.8l8 4.4v9.6l-8 4.4-8-4.4V7.2z"/><path d="M4.3 7.3L12 11.7l7.7-4.4M12 11.7V21"/>
+        </svg>
+        <span>Equipment &amp; team</span>
+      </a>
+      <a class="nav-item" href="#/report" data-route="report">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 9v4.5M12 17h.01"/>
+          <path d="M10.3 3.9L2.6 17.2A2 2 0 004.3 20.2h15.4a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/>
+        </svg>
+        <span>Report an issue</span>
+      </a>
+      <a class="nav-item" href="#/work-orders" data-route="work-orders">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14.7 6.3a4.5 4.5 0 105.9 5.9l-9 9a2.4 2.4 0 01-3.4-3.4l9-9z"/>
+          <path d="M17.5 3.5l3 3"/>
+        </svg>
+        <span>Work orders</span>
+      </a>
+      <a class="nav-item" href="#/records" data-route="records">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3.5 12a8.5 8.5 0 108.5-8.5A8.5 8.5 0 005.6 6.6"/>
+          <path d="M3.5 3.5v3.6h3.6M12 8v4.4l3 1.8"/>
+        </svg>
+        <span>Maintenance records</span>
+      </a>
+      <a class="nav-item" href="#/assistant" data-route="assistant">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/>
+          <path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>
+        </svg>
+        <span>AI knowledge assistant</span>
+      </a>
+      <a class="nav-item" href="#/reports" data-route="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3.5 20.5h17M6.8 20.5v-6.2M11.9 20.5V7.4M17 20.5v-9.1"/>
+        </svg>
+        <span>Reports &amp; insights</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="status-line"><span class="dot"></span> All systems operational</div>
+      <div class="foot-muted">SQLite · Local-first</div>
+      <div class="foot-muted" id="ai-status">Checking AI provider…</div>
+    </div>
+  </aside>
+
+  <div class="scrim" id="scrim" hidden></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+      </button>
+
+      <div class="topbar-spacer"></div>
+
+      <span class="pill" id="provider-pill">Checking provider…</span>
+
+      <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch to dark theme" title="Switch theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4.2"/>
+          <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20.5 14.6A8.6 8.6 0 019.4 3.5a8.6 8.6 0 1011.1 11.1z"/>
+        </svg>
+      </button>
+    </header>
+
+    <main class="view" id="view" tabindex="-1"></main>
+  </div>
+
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<div id="modal-root"></div>
+
+<script type="module" src="./js/main.js?v=5"></script>
+</body>
+</html>

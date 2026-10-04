@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import maintenance_db as db
 from ai_services import answer_knowledge_question, groq_configured, triage_issue
-from streamlit.errors import StreamlitSecretNotFoundError
 
 
 TECHNICIANS = [
@@ -48,7 +47,7 @@ class MaintenanceWorkflowTests(unittest.TestCase):
     def setUp(self):
         db.DB_PATH.unlink(missing_ok=True)
         db.initialize()
-        secrets_patcher = patch("ai_services.st.secrets", {})
+        secrets_patcher = patch("ai_services._load_secrets", return_value={})
         secrets_patcher.start()
         self.addCleanup(secrets_patcher.stop)
 
@@ -92,10 +91,24 @@ class MaintenanceWorkflowTests(unittest.TestCase):
 
     def test_document_assistant_returns_matching_grounded_passage(self):
         with patch.dict("os.environ", {"GROQ_API_KEY": ""}):
-            answer, sources, provider_error = answer_knowledge_question(
-                "What does the manual say about overheating?",
-                [{"filename": "manual.txt", "content": "For overheating, stop the machine and inspect the cooling fan and airflow."}],
-            )
+            with patch(
+                "ai_services.retrieve",
+                return_value=[
+                    {
+                        "filename": "manual.txt",
+                        "content": "For overheating, stop the machine and inspect the cooling fan and airflow.",
+                        "score": 0.91,
+                        "chunk_index": 0,
+                    }
+                ],
+            ) as retrieve:
+                answer, sources, provider_error = answer_knowledge_question(
+                    "What does the manual say about overheating?",
+                )
+                retrieve.assert_called_once_with(
+                    question="What does the manual say about overheating?",
+                    top_k=5,
+                )
         self.assertIn("cooling fan", answer.lower())
         self.assertEqual(sources[0]["filename"], "manual.txt")
         self.assertIsNone(provider_error)
@@ -152,10 +165,13 @@ class MaintenanceWorkflowTests(unittest.TestCase):
         self.assertIn("Samira Patel", sent_prompt)
         self.assertIn("active_work_orders", sent_prompt)
 
-    def test_groq_key_is_loaded_from_streamlit_secrets(self):
+    def test_groq_key_is_loaded_from_secrets_file(self):
         with (
             patch.dict("os.environ", {"GROQ_API_KEY": ""}),
-            patch("ai_services.st.secrets", {"GROQ_API_KEY": "test-streamlit-secret"}),
+            patch(
+                "ai_services._load_secrets",
+                return_value={"GROQ_API_KEY": "test-secrets-file-key"},
+            ),
             patch("groq.Groq") as groq_client,
         ):
             self.assertTrue(groq_configured())
@@ -163,26 +179,32 @@ class MaintenanceWorkflowTests(unittest.TestCase):
 
             _groq_client()
 
-        groq_client.assert_called_once_with(api_key="test-streamlit-secret")
+        groq_client.assert_called_once_with(api_key="test-secrets-file-key")
 
-    def test_malformed_streamlit_secrets_error_is_actionable(self):
-        class MalformedSecrets(dict):
-            def get(self, key, default=None):
-                try:
-                    raise ValueError("invalid toml")
-                except ValueError as exc:
-                    raise StreamlitSecretNotFoundError("could not parse secrets") from exc
-
-        with patch("ai_services.st.secrets", MalformedSecrets()):
-            with self.assertRaisesRegex(RuntimeError, r"could not parse .streamlit/secrets\.toml"):
-                groq_configured()
+    def test_malformed_secrets_file_error_is_actionable(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            secrets_path = Path(temp_dir) / "secrets.toml"
+            secrets_path.write_text(
+                'GROQ_API_KEY = "unterminated', encoding="utf-8"
+            )
+            with (
+                patch.dict("os.environ", {"GROQ_API_KEY": ""}),
+                patch("ai_services.SECRETS_PATH", secrets_path),
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    r"Could not parse \.streamlit/secrets\.toml",
+                ):
+                    groq_configured()
 
     def test_groq_key_and_model_support_groq_secret_section(self):
         with (
             patch.dict("os.environ", {"GROQ_API_KEY": "", "GROQ_MODEL": ""}),
             patch(
-                "ai_services.st.secrets",
-                {"groq": {"api_key": "section-secret", "model": "section-model"}},
+                "ai_services._load_secrets",
+                return_value={
+                    "groq": {"api_key": "section-secret", "model": "section-model"}
+                },
             ),
         ):
             from ai_services import _setting
@@ -193,10 +215,13 @@ class MaintenanceWorkflowTests(unittest.TestCase):
                 "section-model",
             )
 
-    def test_environment_groq_key_overrides_streamlit_secret(self):
+    def test_environment_groq_key_overrides_secrets_file(self):
         with (
             patch.dict("os.environ", {"GROQ_API_KEY": "environment-key"}),
-            patch("ai_services.st.secrets", {"GROQ_API_KEY": "streamlit-key"}),
+            patch(
+                "ai_services._load_secrets",
+                return_value={"GROQ_API_KEY": "secrets-file-key"},
+            ),
             patch("groq.Groq") as groq_client,
         ):
             from ai_services import _groq_client

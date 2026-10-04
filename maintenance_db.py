@@ -178,6 +178,54 @@ def add_technician(name: str, skills: str, contact: str) -> int:
     )
 
 
+def update_equipment(equipment_id: int, updates: dict[str, Any]) -> bool:
+    columns = {
+        "name": "name",
+        "equipment_type": "equipment_type",
+        "location": "location",
+        "installed_on": "installed_on",
+        "status": "status",
+    }
+    if not updates or not updates.keys() <= columns.keys():
+        raise ValueError("Invalid equipment fields.")
+    assignments = ", ".join(f"{columns[key]} = ?" for key in updates)
+    with connect() as db:
+        cursor = db.execute(
+            f"UPDATE equipment SET {assignments} WHERE id = ?",
+            (*updates.values(), equipment_id),
+        )
+        return cursor.rowcount > 0
+
+
+def delete_equipment(equipment_id: int) -> bool:
+    with connect() as db:
+        cursor = db.execute("DELETE FROM equipment WHERE id = ?", (equipment_id,))
+        return cursor.rowcount > 0
+
+
+def update_technician(technician_id: int, updates: dict[str, Any]) -> bool:
+    columns = {
+        "name": "name",
+        "skills": "skills",
+        "contact": "contact",
+    }
+    if not updates or not updates.keys() <= columns.keys():
+        raise ValueError("Invalid technician fields.")
+    assignments = ", ".join(f"{columns[key]} = ?" for key in updates)
+    with connect() as db:
+        cursor = db.execute(
+            f"UPDATE technicians SET {assignments} WHERE id = ?",
+            (*updates.values(), technician_id),
+        )
+        return cursor.rowcount > 0
+
+
+def delete_technician(technician_id: int) -> bool:
+    with connect() as db:
+        cursor = db.execute("DELETE FROM technicians WHERE id = ?", (technician_id,))
+        return cursor.rowcount > 0
+
+
 def create_issue(
     equipment_id: int,
     description: str,
