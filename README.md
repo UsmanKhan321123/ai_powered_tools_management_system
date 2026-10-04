@@ -26,6 +26,12 @@ python -m uvicorn api:app --reload
 Open `http://127.0.0.1:8000`. On first run, the app creates `maintainiq.db` and seeds
 example equipment and technicians.
 
+## Deploy on Railway
+
+The repository includes `railway.json` with the FastAPI start command. Railway starts
+the app with Uvicorn on `0.0.0.0` and the port supplied by Railway's `PORT` variable.
+Set `GROQ_API_KEY` in the Railway service variables to enable Groq-powered features.
+
 The interface is a single-page app served from `static/`. It uses a light and dark theme
 with a toggle in the top bar, hand-rolled inline SVG charts, and no external CDN or font
 services — the whole UI works offline.
